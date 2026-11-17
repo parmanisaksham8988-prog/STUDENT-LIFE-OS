@@ -18,7 +18,13 @@ function App() {
   const [user, setUser] = useState(() => api.getCurrentUser() || { name: "Saksham", email: "demo@student.edu" });
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [toasts, setToasts] = useState([]);
+
+  const handleNavClick = (targetPage) => {
+    setPage(targetPage);
+    setMobileMenuOpen(false);
+  };
 
   const [stats, setStats] = useState({
     totalTasks: 0,
@@ -131,9 +137,18 @@ function App() {
   return (
     <div className={`app theme-${theme}`}>
       {/* SIDEBAR */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${mobileMenuOpen ? "mobile-open" : ""}`}>
         <div className="sidebar-top">
-          <h2 className="logo">🎓 Student Life OS</h2>
+          <div className="sidebar-brand-row">
+            <h2 className="logo">🎓 Student Life OS</h2>
+            <button
+              className="sidebar-close-btn"
+              onClick={() => setMobileMenuOpen(false)}
+              title="Close Menu"
+            >
+              ✕
+            </button>
+          </div>
           <div className="theme-toggle-container">
             <button className="theme-btn" onClick={toggleTheme} title="Toggle Dark/Light Mode">
               {theme === "light" ? "🌙 Dark Mode" : "☀️ Light Mode"}
@@ -144,42 +159,42 @@ function App() {
         <nav>
           <button
             className={page === "dashboard" ? "active" : ""}
-            onClick={() => setPage("dashboard")}
+            onClick={() => handleNavClick("dashboard")}
           >
             🏠 Dashboard
           </button>
 
           <button
             className={page === "tasks" ? "active" : ""}
-            onClick={() => setPage("tasks")}
+            onClick={() => handleNavClick("tasks")}
           >
             📝 Tasks
           </button>
 
           <button
             className={page === "notes" ? "active" : ""}
-            onClick={() => setPage("notes")}
+            onClick={() => handleNavClick("notes")}
           >
             📚 Notes
           </button>
 
           <button
             className={page === "exams" ? "active" : ""}
-            onClick={() => setPage("exams")}
+            onClick={() => handleNavClick("exams")}
           >
             📅 Exams
           </button>
 
           <button
             className={page === "attendance" ? "active" : ""}
-            onClick={() => setPage("attendance")}
+            onClick={() => handleNavClick("attendance")}
           >
             📊 Attendance
           </button>
 
           <button
             className={page === "ai" ? "active" : ""}
-            onClick={() => setPage("ai")}
+            onClick={() => handleNavClick("ai")}
           >
             🤖 AI Assistant
           </button>
@@ -200,7 +215,7 @@ function App() {
                 🚪 Sign Out
               </button>
             ) : (
-              <button className="auth-btn login" onClick={() => setIsAuthOpen(true)}>
+              <button className="auth-btn login" onClick={() => { setIsAuthOpen(true); setMobileMenuOpen(false); }}>
                 🔐 Sign In / Register
               </button>
             )}
@@ -208,10 +223,41 @@ function App() {
         </div>
       </aside>
 
+      {/* MOBILE BACKDROP */}
+      {mobileMenuOpen && (
+        <div className="sidebar-backdrop" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
       {/* MAIN */}
       <main className="main">
+        {/* MOBILE TOP BAR */}
+        <div className="mobile-top-bar">
+          <div className="mobile-left-header">
+            <button
+              className="mobile-hamburger-btn"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              title="Toggle Menu"
+            >
+              ☰
+            </button>
+            <span className="mobile-brand">🎓 Student Life OS</span>
+          </div>
+
+          <div className="mobile-right-actions">
+            <button className="theme-btn-compact" onClick={toggleTheme} title="Toggle Theme">
+              {theme === "light" ? "🌙" : "☀️"}
+            </button>
+            <NotificationCenter
+              stats={stats}
+              toasts={toasts}
+              onDismissToast={dismissToast}
+              onNavigate={(targetPage) => handleNavClick(targetPage)}
+            />
+          </div>
+        </div>
+
         {/* TOP HEADER */}
-        <header className="header">
+        <header className="header desktop-only-header">
           <div>
             <h1>Good Morning, {user?.name || "Saksham"} 👋</h1>
             <p>Track your academic goals, attendance eligibility, and study schedules.</p>
@@ -378,6 +424,57 @@ function App() {
         {/* AI ASSISTANT */}
         {page === "ai" && <AIAssistant addToast={addToast} />}
       </main>
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="mobile-bottom-nav">
+        <button
+          className={page === "dashboard" ? "active" : ""}
+          onClick={() => handleNavClick("dashboard")}
+        >
+          <span className="mob-icon">🏠</span>
+          <span className="mob-label">Home</span>
+        </button>
+
+        <button
+          className={page === "tasks" ? "active" : ""}
+          onClick={() => handleNavClick("tasks")}
+        >
+          <span className="mob-icon">📝</span>
+          <span className="mob-label">Tasks</span>
+        </button>
+
+        <button
+          className={page === "notes" ? "active" : ""}
+          onClick={() => handleNavClick("notes")}
+        >
+          <span className="mob-icon">📚</span>
+          <span className="mob-label">Notes</span>
+        </button>
+
+        <button
+          className={page === "exams" ? "active" : ""}
+          onClick={() => handleNavClick("exams")}
+        >
+          <span className="mob-icon">📅</span>
+          <span className="mob-label">Exams</span>
+        </button>
+
+        <button
+          className={page === "attendance" ? "active" : ""}
+          onClick={() => handleNavClick("attendance")}
+        >
+          <span className="mob-icon">📊</span>
+          <span className="mob-label">Attd</span>
+        </button>
+
+        <button
+          className={page === "ai" ? "active" : ""}
+          onClick={() => handleNavClick("ai")}
+        >
+          <span className="mob-icon">🤖</span>
+          <span className="mob-label">AI Tutor</span>
+        </button>
+      </nav>
 
       {/* AUTHENTICATION MODAL */}
       <AuthModal
