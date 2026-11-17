@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: student-life-os
+    env: python
+    plan: free
+    buildCommand: "bash build.sh"
+    startCommand: "gunicorn --chdir backend app:app"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: JWT_SECRET
+        generateValue: true
