@@ -15,7 +15,7 @@ import { api } from "./api/api";
 function App() {
   const [page, setPage] = useState("dashboard");
   const [theme, setTheme] = useState(() => localStorage.getItem("student_os_theme") || "light");
-  const [user, setUser] = useState(() => api.getCurrentUser() || { name: "Saksham", email: "demo@student.edu" });
+  const [user, setUser] = useState(() => api.getCurrentUser());
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isReportOpen, setIsReportOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -201,21 +201,44 @@ function App() {
         </nav>
 
         <div className="sidebar-bottom">
-          <div className="user-sidebar-card">
-            <div className="user-avatar">👤</div>
+          <div 
+            className="user-sidebar-card" 
+            onClick={() => setIsAuthOpen(true)} 
+            style={{ cursor: "pointer" }}
+            title="Manage account / Switch student"
+          >
+            <div className="user-avatar">{user ? "👤" : "⚡"}</div>
             <div className="user-info">
-              <strong>{user?.name || "Student"}</strong>
-              <small>{user?.email || "Guest"}</small>
+              <strong>{user?.name || "Guest Mode"}</strong>
+              <small>{user?.email || "Click to Sign In"}</small>
             </div>
           </div>
 
           <div className="sidebar-actions">
             {user ? (
-              <button className="auth-btn logout" onClick={handleLogout}>
-                🚪 Sign Out
-              </button>
+              <div style={{ display: "flex", gap: "0.5rem", width: "100%" }}>
+                <button 
+                  className="auth-btn" 
+                  onClick={() => setIsAuthOpen(true)}
+                  style={{ flex: 1, padding: "0.4rem", fontSize: "0.8rem", borderRadius: "6px", cursor: "pointer" }}
+                  title="Switch or Register account"
+                >
+                  🔄 Switch
+                </button>
+                <button 
+                  className="auth-btn logout" 
+                  onClick={handleLogout}
+                  style={{ flex: 1, padding: "0.4rem", fontSize: "0.8rem", borderRadius: "6px", cursor: "pointer" }}
+                >
+                  🚪 Sign Out
+                </button>
+              </div>
             ) : (
-              <button className="auth-btn login" onClick={() => { setIsAuthOpen(true); setMobileMenuOpen(false); }}>
+              <button 
+                className="auth-btn login" 
+                onClick={() => { setIsAuthOpen(true); setMobileMenuOpen(false); }}
+                style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", cursor: "pointer" }}
+              >
                 🔐 Sign In / Register
               </button>
             )}
@@ -280,8 +303,13 @@ function App() {
               📄 Export Academic Report (PDF)
             </button>
 
-            <div className="profile-pill">
-              👤 {user?.name || "Saksham"}
+            <div 
+              className="profile-pill"
+              onClick={() => setIsAuthOpen(true)}
+              style={{ cursor: "pointer" }}
+              title="Click to Switch Student or Sign In"
+            >
+              👤 {user?.name || "Sign In / Register"}
             </div>
           </div>
         </header>

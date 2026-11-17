@@ -1,5 +1,15 @@
 import os
 import sys
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if BASE_DIR not in sys.path:
+    sys.path.insert(0, BASE_DIR)
+
+# Also ensure parent dir is in sys.path
+PARENT_DIR = os.path.dirname(BASE_DIR)
+if PARENT_DIR not in sys.path:
+    sys.path.insert(0, PARENT_DIR)
+
 import json
 import sqlite3
 import datetime
@@ -10,7 +20,15 @@ from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
 from dotenv import load_dotenv
-from ai_engine import call_gemini_api, generate_deep_academic_response
+
+try:
+    from ai_engine import call_gemini_api, generate_deep_academic_response
+except ImportError:
+    try:
+        from backend.ai_engine import call_gemini_api, generate_deep_academic_response
+    except ImportError:
+        call_gemini_api = None
+        generate_deep_academic_response = None
 
 if sys.platform == 'win32':
     try:
@@ -21,8 +39,7 @@ if sys.platform == 'win32':
 
 load_dotenv()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FRONTEND_DIST = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
+FRONTEND_DIST = os.path.join(PARENT_DIR, "frontend", "dist")
 
 app = Flask(__name__, static_folder=FRONTEND_DIST, static_url_path="")
 CORS(app, resources={r"/*": {"origins": "*"}})

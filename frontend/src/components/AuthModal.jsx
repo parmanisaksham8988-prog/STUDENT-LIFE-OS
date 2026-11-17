@@ -1,5 +1,5 @@
 ﻿import { useState } from "react";
-import { api } from "../api/api";
+import { api, getBaseApiUrl } from "../api/api";
 
 function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [isRegister, setIsRegister] = useState(false);
@@ -8,6 +8,9 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [showServerConfig, setShowServerConfig] = useState(false);
+  const [customUrl, setCustomUrl] = useState(() => api.getCustomApiUrl() || "");
+  const [urlSavedMsg, setUrlSavedMsg] = useState("");
 
   if (!isOpen) return null;
 
@@ -28,6 +31,10 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       onClose();
     } catch (err) {
       setError(err.message || "Authentication failed");
+      // If it looks like a network or connection error, auto-open the server config
+      if (err.message && (err.message.includes("Cannot connect") || err.message.includes("Failed to fetch"))) {
+        setShowServerConfig(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -42,9 +49,26 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       onClose();
     } catch (err) {
       setError(err.message || "Demo login failed");
+      if (err.message && (err.message.includes("Cannot connect") || err.message.includes("Failed to fetch"))) {
+        setShowServerConfig(true);
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSaveCustomUrl = (e) => {
+    e.preventDefault();
+    api.setCustomApiUrl(customUrl);
+    setUrlSavedMsg("Backend URL saved successfully! Retrying connection...");
+    setTimeout(() => setUrlSavedMsg(""), 3000);
+  };
+
+  const handleResetUrl = () => {
+    api.setCustomApiUrl("");
+    setCustomUrl("");
+    setUrlSavedMsg("Reset to default backend URL.");
+    setTimeout(() => setUrlSavedMsg(""), 3000);
   };
 
   return (
@@ -52,10 +76,14 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       <div className="modal-card">
         <div className="modal-header">
           <h2>{isRegister ? "Create Student Account" : "Student Login"}</h2>
-          <button className="close-btn" onClick={onClose}>✕</button>
+          <button className="close-btn" onClick={onClose} title="Close">✕</button>
         </div>
 
-        {error && <div className="error-badge">{error}</div>}
+        {error && (
+          <div className="error-badge" style={{ marginBottom: "1rem" }}>
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="auth-form">
           {isRegister && (
@@ -94,34 +122,110 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
             />
           </div>
 
-          <button type="submit" className="primary-btn" disabled={loading}>
-            {loading ? "Processing..." : isRegister ? "Create Account" : "Sign In"}
+          <button type="submit" className="primary-btn" disabled={loading} style={{ width: "100%", marginTop: "0.5rem" }}>
+            {loading ? "Processing..." : isRegister ? "Create Account & Sync" : "Sign In"}
           </button>
         </form>
 
-        <div className="demo-login-box">
-          <p>Professors & Evaluators:</p>
+        <div className="demo-login-box" style={{ marginTop: "1rem" }}>
+          <p style={{ margin: "0 0 0.5rem 0", fontSize: "0.85rem", opacity: 0.8 }}>⚡ 1-Click Test Access:</p>
           <button
             type="button"
             className="demo-btn"
             onClick={handleDemoLogin}
             disabled={loading}
+            style={{ width: "100%" }}
           >
-            ⚡ 1-Click Demo Student Login (Saksham)
+            ⚡ Login as Demo Student (Saksham)
           </button>
         </div>
 
-        <div className="auth-toggle">
+        <div className="auth-toggle" style={{ marginTop: "1rem", textAlign: "center" }}>
           {isRegister ? (
             <p>
               Already have an account?{" "}
-              <span onClick={() => setIsRegister(false)}>Sign In</span>
+              <button
+                type="button"
+                onClick={() => setIsRegister(false)}
+                style={{ background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontWeight: 600 }}
+              >
+                Sign In
+              </button>
             </p>
           ) : (
             <p>
               New student?{" "}
-              <span onClick={() => setIsRegister(true)}>Create an Account</span>
+              <button
+                type="button"
+                onClick={() => setIsRegister(true)}
+                style={{ background: "none", border: "none", color: "#6366f1", cursor: "pointer", fontWeight: 600 }}
+              >
+                Create an Account
+              </button>
             </p>
+          )}
+        </div>
+
+        {/* SERVER / DEPLOYMENT URL SETTINGS (COLLAPSIBLE) */}
+        <div style={{ marginTop: "1.2rem", paddingTop: "0.8rem", borderTop: "1px solid var(--border, #333)", fontSize: "0.82rem" }}>
+          <button
+            type="button"
+            onClick={() => setShowServerConfig(!showServerConfig)}
+            style={{
+              background: "none",
+              border: "none",
+              color: "var(--text-muted, #888)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.4rem",
+              padding: 0,
+              fontSize: "0.82rem"
+            }}
+          >
+            ⚙️ {showServerConfig ? "Hide Backend Server Settings" : "Backend Server Settings (Render / Localhost)"}
+          </button>
+
+          {showServerConfig && (
+            <div style={{ marginTop: "0.8rem", padding: "0.8rem", background: "rgba(99, 102, 241, 0.08)", borderRadius: "8px" }}>
+              <p style={{ margin: "0 0 0.4rem 0", color: "var(--text, #fff)" }}>
+                Current API Endpoint: <code>{getBaseApiUrl()}</code>
+              </p>
+              <p style={{ margin: "0 0 0.6rem 0", fontSize: "0.78rem", color: "var(--text-muted, #aaa)" }}>
+                If using Vercel (frontend) + Render (backend), paste your Render backend URL here (e.g. <code>https://my-backend.onrender.com/api</code>):
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <input
+                  type="text"
+                  placeholder="https://your-backend.onrender.com/api"
+                  value={customUrl}
+                  onChange={(e) => setCustomUrl(e.target.value)}
+                  style={{ flex: 1, padding: "0.4rem 0.6rem", fontSize: "0.82rem", borderRadius: "4px" }}
+                />
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={handleSaveCustomUrl}
+                  style={{ padding: "0.4rem 0.8rem", fontSize: "0.82rem" }}
+                >
+                  Save
+                </button>
+                {customUrl && (
+                  <button
+                    type="button"
+                    onClick={handleResetUrl}
+                    style={{ padding: "0.4rem 0.6rem", fontSize: "0.82rem", background: "none", border: "1px solid #666", borderRadius: "4px", color: "inherit", cursor: "pointer" }}
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
+              {urlSavedMsg && (
+                <p style={{ margin: "0.4rem 0 0 0", color: "#10b981", fontSize: "0.78rem" }}>
+                  ✓ {urlSavedMsg}
+                </p>
+              )}
+            </div>
           )}
         </div>
       </div>
