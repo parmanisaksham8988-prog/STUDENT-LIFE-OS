@@ -20,9 +20,10 @@ export const getBaseApiUrl = () => {
   if (typeof window !== 'undefined') {
     // If running under Vite dev server (port 5173, 5174, or 3000)
     if (window.location.port && (window.location.port.startsWith('517') || window.location.port === '3000')) {
-      return `http://${window.location.hostname}:5000/api`;
+      // In dev mode, use relative /api so Vite proxy intercepts and forwards to 127.0.0.1:5000 cleanly!
+      return '/api';
     }
-    // Unified deployment (Flask serving frontend) or same-domain API
+    // Unified deployment (Flask serving frontend) or same-origin API
     return `${window.location.origin}/api`;
   }
 
@@ -53,7 +54,7 @@ const request = async (endpoint, options = {}) => {
     res = await fetch(url, { ...options, headers });
   } catch (err) {
     console.error(`Network error requesting ${url}:`, err);
-    throw new Error(`Cannot connect to server at ${base}. Please ensure the backend is running (python app.py) or set your backend URL in settings.`);
+    throw new Error(`Cannot connect to server at ${base}. Please ensure the backend is running (python app.py) or set your Render backend URL.`);
   }
 
   if (!res.ok) {
@@ -61,11 +62,13 @@ const request = async (endpoint, options = {}) => {
     throw new Error(errBody.error || `Request failed with status ${res.status}`);
   }
 
-  const contentType = res.headers.get('content-type');
-  if (contentType && contentType.includes('application/json')) {
+  const contentType = res.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
     return res.json();
   }
-  return res.text();
+
+  // If server returned HTML (happens when Vercel static rewrites /api/* to index.html)
+  throw new Error("Backend server not reachable at this URL (received HTML instead of JSON). If on Vercel, please configure your Render Backend URL.");
 };
 
 export const api = {
@@ -97,7 +100,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password })
     });
-    if (data.token) {
+    if (data && data.token) {
       localStorage.setItem('student_os_token', data.token);
       localStorage.setItem('student_os_user', JSON.stringify(data.user));
     }
@@ -110,7 +113,7 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password })
     });
-    if (data.token) {
+    if (data && data.token) {
       localStorage.setItem('student_os_token', data.token);
       localStorage.setItem('student_os_user', JSON.stringify(data.user));
     }

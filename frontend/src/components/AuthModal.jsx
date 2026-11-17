@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { api, getBaseApiUrl } from "../api/api";
 
 function AuthModal({ isOpen, onClose, onLoginSuccess }) {
@@ -14,6 +14,11 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
 
   if (!isOpen) return null;
 
+  const isOnVercel = typeof window !== "undefined" && 
+    window.location.hostname.includes("vercel.app") && 
+    !api.getCustomApiUrl() && 
+    !import.meta.env.VITE_API_URL;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -23,16 +28,22 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
       if (isRegister) {
         if (!name.trim()) throw new Error("Name is required");
         const data = await api.register(name.trim(), email.trim(), password);
+        if (!data || !data.user) {
+          throw new Error("Registration failed: Invalid response from backend");
+        }
         onLoginSuccess(data.user);
       } else {
         const data = await api.login(email.trim(), password);
+        if (!data || !data.user) {
+          throw new Error("Login failed: Invalid response from backend");
+        }
         onLoginSuccess(data.user);
       }
       onClose();
     } catch (err) {
       setError(err.message || "Authentication failed");
       // If it looks like a network or connection error, auto-open the server config
-      if (err.message && (err.message.includes("Cannot connect") || err.message.includes("Failed to fetch"))) {
+      if (err.message && (err.message.includes("Cannot connect") || err.message.includes("Failed to fetch") || err.message.includes("Backend server not reachable"))) {
         setShowServerConfig(true);
       }
     } finally {
@@ -45,11 +56,14 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
     setLoading(true);
     try {
       const data = await api.login("demo@student.edu", "password123");
+      if (!data || !data.user) {
+        throw new Error("Demo login failed: Invalid response from backend");
+      }
       onLoginSuccess(data.user);
       onClose();
     } catch (err) {
       setError(err.message || "Demo login failed");
-      if (err.message && (err.message.includes("Cannot connect") || err.message.includes("Failed to fetch"))) {
+      if (err.message && (err.message.includes("Cannot connect") || err.message.includes("Failed to fetch") || err.message.includes("Backend server not reachable"))) {
         setShowServerConfig(true);
       }
     } finally {
@@ -60,14 +74,14 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
   const handleSaveCustomUrl = (e) => {
     e.preventDefault();
     api.setCustomApiUrl(customUrl);
-    setUrlSavedMsg("Backend URL saved successfully! Retrying connection...");
-    setTimeout(() => setUrlSavedMsg(""), 3000);
+    setUrlSavedMsg("Backend URL saved successfully! Please try Sign In now.");
+    setTimeout(() => setUrlSavedMsg(""), 3500);
   };
 
   const handleResetUrl = () => {
     api.setCustomApiUrl("");
     setCustomUrl("");
-    setUrlSavedMsg("Reset to default backend URL.");
+    setUrlSavedMsg("Reset to default URL.");
     setTimeout(() => setUrlSavedMsg(""), 3000);
   };
 
@@ -78,6 +92,23 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           <h2>{isRegister ? "Create Student Account" : "Student Login"}</h2>
           <button className="close-btn" onClick={onClose} title="Close">✕</button>
         </div>
+
+        {isOnVercel && (
+          <div style={{
+            background: "rgba(245, 158, 11, 0.15)",
+            border: "1px solid #f59e0b",
+            color: "#f59e0b",
+            padding: "0.6rem 0.8rem",
+            borderRadius: "6px",
+            fontSize: "0.82rem",
+            marginBottom: "0.8rem"
+          }}>
+            <strong>⚡ Vercel Deployment Notice:</strong>
+            <p style={{ margin: "0.2rem 0 0 0" }}>
+              Aap Vercel par hain. Vercel static files host karta hai. Login aur Database ke liye niche Render Backend URL enter karein.
+            </p>
+          </div>
+        )}
 
         {error && (
           <div className="error-badge" style={{ marginBottom: "1rem" }}>
@@ -166,7 +197,7 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
           )}
         </div>
 
-        {/* SERVER / DEPLOYMENT URL SETTINGS (COLLAPSIBLE) */}
+        {/* SERVER / DEPLOYMENT URL SETTINGS (COLLAPSIBLE OR AUTO-OPEN ON VERCEL) */}
         <div style={{ marginTop: "1.2rem", paddingTop: "0.8rem", borderTop: "1px solid var(--border, #333)", fontSize: "0.82rem" }}>
           <button
             type="button"
@@ -183,16 +214,16 @@ function AuthModal({ isOpen, onClose, onLoginSuccess }) {
               fontSize: "0.82rem"
             }}
           >
-            ⚙️ {showServerConfig ? "Hide Backend Server Settings" : "Backend Server Settings (Render / Localhost)"}
+            ⚙️ {showServerConfig || isOnVercel ? "Backend Server Settings (Render / Localhost)" : "Backend Server Settings (Render / Localhost)"}
           </button>
 
-          {showServerConfig && (
+          {(showServerConfig || isOnVercel) && (
             <div style={{ marginTop: "0.8rem", padding: "0.8rem", background: "rgba(99, 102, 241, 0.08)", borderRadius: "8px" }}>
               <p style={{ margin: "0 0 0.4rem 0", color: "var(--text, #fff)" }}>
-                Current API Endpoint: <code>{getBaseApiUrl()}</code>
+                Active API Endpoint: <code>{getBaseApiUrl()}</code>
               </p>
               <p style={{ margin: "0 0 0.6rem 0", fontSize: "0.78rem", color: "var(--text-muted, #aaa)" }}>
-                If using Vercel (frontend) + Render (backend), paste your Render backend URL here (e.g. <code>https://my-backend.onrender.com/api</code>):
+                Render Backend URL paste karein (e.g. <code>https://your-backend.onrender.com/api</code>):
               </p>
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <input
