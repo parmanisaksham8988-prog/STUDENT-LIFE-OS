@@ -1,13 +1,17 @@
 const getBaseApiUrl = () => {
+  // 1. User-configured custom API URL from localStorage (useful for Vercel + Render pairing)
+  if (typeof window !== 'undefined' && localStorage.getItem('student_os_custom_api_url')) {
+    return localStorage.getItem('student_os_custom_api_url').replace(/\/+$/, '');
+  }
+  // 2. Environment variable if provided during build (e.g. Vercel dashboard)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL.replace(/\/+$/, '');
   }
+  // 3. Browser environment fallback
   if (typeof window !== 'undefined') {
-    // If running under local Vite dev server, route to local Flask backend
     if (window.location.port === '5173') {
       return 'http://localhost:5000/api';
     }
-    // In production or cloud deployments, use current origin
     return `${window.location.origin}/api`;
   }
   return '/api';
@@ -318,5 +322,17 @@ export const api = {
     const data = await res.json();
     localStorage.setItem('gemini_api_key', apiKey);
     return data;
+  },
+
+  setCustomApiUrl: (url) => {
+    if (url) {
+      localStorage.setItem('student_os_custom_api_url', url.replace(/\/+$/, ''));
+    } else {
+      localStorage.removeItem('student_os_custom_api_url');
+    }
+  },
+
+  getCustomApiUrl: () => {
+    return typeof window !== 'undefined' ? localStorage.getItem('student_os_custom_api_url') || '' : '';
   }
 };
