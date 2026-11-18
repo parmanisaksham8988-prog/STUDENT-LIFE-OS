@@ -234,13 +234,30 @@ function App() {
                 </button>
               </div>
             ) : (
-              <button 
-                className="auth-btn login" 
-                onClick={() => { setIsAuthOpen(true); setMobileMenuOpen(false); }}
-                style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", cursor: "pointer" }}
-              >
-                🔐 Sign In / Register
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", width: "100%" }}>
+                <button 
+                  className="auth-btn login" 
+                  onClick={() => { setIsAuthOpen(true); setMobileMenuOpen(false); }}
+                  style={{ width: "100%", padding: "0.5rem", borderRadius: "6px", cursor: "pointer" }}
+                >
+                  🔐 Sign In / Register
+                </button>
+                <button 
+                  className="auth-btn" 
+                  onClick={async () => {
+                    try {
+                      const data = await api.login("demo@student.edu", "password123");
+                      handleLoginSuccess(data.user);
+                    } catch (err) {
+                      setIsAuthOpen(true);
+                    }
+                  }}
+                  style={{ width: "100%", padding: "0.4rem", fontSize: "0.8rem", borderRadius: "6px", cursor: "pointer", background: "rgba(99, 102, 241, 0.15)", border: "1px solid #6366f1", color: "inherit" }}
+                  title="Preview with pre-loaded demo tasks and notes"
+                >
+                  ⚡ 1-Click Demo Mode
+                </button>
+              </div>
             )}
           </div>
         </div>
@@ -282,8 +299,8 @@ function App() {
         {/* TOP HEADER */}
         <header className="header desktop-only-header">
           <div>
-            <h1>Good Morning, {user?.name || "Saksham"} 👋</h1>
-            <p>Track your academic goals, attendance eligibility, and study schedules.</p>
+            <h1>{user ? `Good Morning, ${user.name} 👋` : "Welcome to Student Life OS 👋"}</h1>
+            <p>{user ? "Track your academic goals, attendance eligibility, and study schedules." : "Sign in to manage your routine, or try Demo mode with sample coursework."}</p>
           </div>
 
           <div className="header-actions">

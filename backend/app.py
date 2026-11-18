@@ -223,47 +223,6 @@ def init_db():
 init_db()
 
 
-def seed_user_starter_data(user_id):
-    now = datetime.datetime.now().isoformat()
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.executemany('''
-        INSERT INTO tasks (user_id, title, subject, priority, completed, created_at)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', [
-        (user_id, "Review Syllabus & Core Concepts", "Academics", "High", 0, now),
-        (user_id, "Complete Week 1 Lab Assignment", "Computer Science", "Medium", 0, now),
-        (user_id, "Organize Subject Notes & Cheatsheets", "Study Skills", "Low", 0, now)
-    ])
-    cursor.execute('''
-        INSERT INTO notes (user_id, title, subject, content, file_name, file_path, file_type, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ''', (
-        user_id,
-        "Welcome to Student Life OS",
-        "Overview",
-        "Welcome! Use this space to write quick notes, attach assignment PDF files, and organize semester study materials.",
-        None, None, None, now
-    ))
-    cursor.executemany('''
-        INSERT INTO exams (user_id, subject, type, date, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    ''', [
-        (user_id, "Data Structures & Algorithms", "Midterm Exam", "2026-09-15", now),
-        (user_id, "Computer Networks", "Unit Test 1", "2026-09-22", now)
-    ])
-    cursor.executemany('''
-        INSERT INTO attendance (user_id, name, attended, total, created_at)
-        VALUES (?, ?, ?, ?, ?)
-    ''', [
-        (user_id, "Data Structures", 19, 20, now),
-        (user_id, "Computer Networks", 17, 20, now),
-        (user_id, "Database Systems", 14, 20, now)
-    ])
-    conn.commit()
-    conn.close()
-
-
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
@@ -282,10 +241,10 @@ def get_current_user_id():
         token = auth_header.split(' ')[1]
         try:
             payload = jwt.decode(token, JWT_SECRET, algorithms=['HS256'])
-            return payload.get('user_id', 1)
+            return payload.get('user_id', None)
         except Exception:
-            return 1
-    return 1
+            return None
+    return None
 
 
 @app.route('/api/auth/register', methods=['POST'])
@@ -318,7 +277,8 @@ def register():
     conn.commit()
     conn.close()
 
-    seed_user_starter_data(user_id)
+    # NOTE: New registered users start with a clean blank slate (0 tasks, 0 notes, 0 exams, 0 attendance)
+    # Only Demo student (demo@student.edu) has sample academic data.
     token = generate_token(user_id)
     return jsonify({
         "token": token,
@@ -374,6 +334,24 @@ def get_me():
 @app.route('/api/dashboard/stats', methods=['GET'])
 def get_dashboard_stats():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({
+            "totalTasks": 0,
+            "pendingTasks": 0,
+            "completedTasks": 0,
+            "upcomingExamsCount": 0,
+            "overallAttendance": 0,
+            "productivity": 0,
+            "tasks": [],
+            "exams": [],
+            "attendanceChart": [],
+            "priorityDistribution": {
+                "High": 0,
+                "Medium": 0,
+                "Low": 0
+            }
+        })
+
     conn = get_db()
     cursor = conn.cursor()
 
@@ -395,7 +373,7 @@ def get_dashboard_stats():
     total_classes = att_row['total'] or 0
     overall_attendance = round((total_attended / total_classes * 100)) if total_classes > 0 else 0
 
-    productivity = round((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 80
+    productivity = round((completed_tasks / total_tasks * 100)) if total_tasks > 0 else 0
 
     cursor.execute('SELECT * FROM tasks WHERE user_id = ? ORDER BY completed ASC, id DESC LIMIT 5', (user_id,))
     tasks = [dict(row) for row in cursor.fetchall()]
@@ -441,6 +419,8 @@ def get_dashboard_stats():
 @app.route('/api/tasks', methods=['GET'])
 def get_tasks():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify([])
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM tasks WHERE user_id = ? ORDER BY completed ASC, id DESC', (user_id,))
@@ -452,6 +432,8 @@ def get_tasks():
 @app.route('/api/tasks', methods=['POST'])
 def add_task():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Please sign in or register to add tasks"}), 401
     data = request.get_json() or {}
     title = data.get('title', '').strip()
     subject = data.get('subject', '').strip()
@@ -480,6 +462,8 @@ def add_task():
 @app.route('/api/tasks/<int:task_id>/toggle', methods=['PATCH'])
 def toggle_task(task_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM tasks WHERE id = ? AND user_id = ?', (task_id, user_id))
@@ -502,6 +486,8 @@ def toggle_task(task_id):
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 def delete_task(task_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('DELETE FROM tasks WHERE id = ? AND user_id = ?', (task_id, user_id))
@@ -513,6 +499,8 @@ def delete_task(task_id):
 @app.route('/api/notes', methods=['GET'])
 def get_notes():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify([])
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM notes WHERE user_id = ? ORDER BY id DESC', (user_id,))
@@ -535,6 +523,8 @@ def get_notes():
 @app.route('/api/notes', methods=['POST'])
 def add_note():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Please sign in or register to add notes"}), 401
     title = request.form.get('title') or (request.json and request.json.get('title'))
     subject = request.form.get('subject') or (request.json and request.json.get('subject'))
     content = request.form.get('content') or (request.json and request.json.get('content'))
@@ -583,6 +573,8 @@ def add_note():
 @app.route('/api/notes/<int:note_id>', methods=['DELETE'])
 def delete_note(note_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM notes WHERE id = ? AND user_id = ?', (note_id, user_id))
@@ -609,6 +601,8 @@ def get_file(filename):
 @app.route('/api/exams', methods=['GET'])
 def get_exams():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify([])
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM exams WHERE user_id = ? ORDER BY date ASC', (user_id,))
@@ -620,6 +614,8 @@ def get_exams():
 @app.route('/api/exams', methods=['POST'])
 def add_exam():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Please sign in or register to schedule exams"}), 401
     data = request.get_json() or {}
     subject = data.get('subject', '').strip()
     exam_type = data.get('type', '').strip()
@@ -648,6 +644,8 @@ def add_exam():
 @app.route('/api/exams/<int:exam_id>', methods=['DELETE'])
 def delete_exam(exam_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('DELETE FROM exams WHERE id = ? AND user_id = ?', (exam_id, user_id))
@@ -659,6 +657,13 @@ def delete_exam(exam_id):
 @app.route('/api/attendance', methods=['GET'])
 def get_attendance():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({
+            "subjects": [],
+            "totalAttended": 0,
+            "totalClasses": 0,
+            "overallPercentage": 0
+        })
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM attendance WHERE user_id = ? ORDER BY id ASC', (user_id,))
@@ -680,6 +685,8 @@ def get_attendance():
 @app.route('/api/attendance', methods=['POST'])
 def add_attendance():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Please sign in or register to log attendance"}), 401
     data = request.get_json() or {}
     name = data.get('name', '').strip()
     attended = int(data.get('attended', 0))
@@ -708,6 +715,8 @@ def add_attendance():
 @app.route('/api/attendance/<int:att_id>', methods=['PUT'])
 def update_attendance(att_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     name = data.get('name')
     attended = data.get('attended')
@@ -741,6 +750,8 @@ def update_attendance(att_id):
 @app.route('/api/attendance/<int:att_id>/mark', methods=['PATCH'])
 def mark_attendance(att_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     data = request.get_json() or {}
     present = data.get('present', True)
 
@@ -770,6 +781,8 @@ def mark_attendance(att_id):
 @app.route('/api/attendance/<int:att_id>', methods=['DELETE'])
 def delete_attendance(att_id):
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Unauthorized"}), 401
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('DELETE FROM attendance WHERE id = ? AND user_id = ?', (att_id, user_id))
@@ -780,6 +793,8 @@ def delete_attendance(att_id):
 @app.route('/api/reports/summary', methods=['GET'])
 def get_academic_report():
     user_id = get_current_user_id()
+    if not user_id:
+        return jsonify({"error": "Please sign in to view academic report"}), 401
     conn = get_db()
     cursor = conn.cursor()
 
